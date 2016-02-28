@@ -1,0 +1,202 @@
+---
+title: "IS 607 Project 1"
+author: "Logan Thomson"
+date: "February 27, 2016"
+output: html_document
+---
+
+###Setting Up Environment  
+For most of the project I use base R and the `stringr` library. The .txt file to parse over is hosted on GitHub and accessed using the `readLines` function.  
+
+```{r}
+library(stringr)
+library(RCurl)
+chess_file <- readLines('https://raw.githubusercontent.com/Logan213/DATA607_Project1/master/tournamentinfo.txt', warn = FALSE)
+```
+
+
+###Dividing Up the File  
+Looking over the file I thought it would be good to break up the file into the rows that contain the names, opponents, and total points, and the rows that contain the other required information (state, pre-rating).  
+
+For both sections, I used a simple "for loop" to parse over the file and store information from the "n^th^" row into new objects for the name and state rows, called `chess_names` and `state_rows`, respectively.  
+
+After looping through the text rows, the resulting characters are split up with `strsplit` and a simple regular expression as the information we want is separated by a bar (`|`).  
+
+```{r}
+# name rows
+chess_names <- c()
+for (i in 0:length(chess_file))
+{
+    if (i %% 3 == 2)
+      {
+      chess_names <- append(chess_names, chess_file[i], after = length(chess_names))
+      }
+}
+
+chess_names <- unlist(strsplit(chess_names, "\\|"))
+head(chess_names)
+```
+
+```{r}
+# state rows
+state_rows <- c()
+for (i in 0:length(chess_file))
+{
+    if (i %% 3 == 0)
+      {
+      state_rows <- append(state_rows, chess_file[i], after = length(state_rows))
+      }
+}
+
+state_rows <- unlist(strsplit(state_rows, "\\|"))
+head(state_rows[12:20])
+```
+
+###Separating Information from Each Row  
+
+Since all we need are a few pieces of information and the .txt file has some sort of stucture, we can use R's `seq` function to select characters from the `chess_names` and `state_rows` objects without using a loop.  
+
+####Player, State, and Total Points  
+
+```{r}
+Player_Name <- str_trim(chess_names[seq(13, 650, 10)])
+State <- str_trim(state_rows[seq(12, length(state_rows), 10)])
+Total_Points <- as.numeric(str_trim(chess_names[seq(14, length(chess_names), 10)]))
+```
+
+The script above will store the information in a vector for each of the three basic pieces that we need (Player Name, State, and Total Points).  Here is a preview of the `Player_Name` object:  
+```{r}
+head(Player_Name)
+```
+
+####Pre-Tournament Rating  
+
+Things get a little trickier now, as the Pre-Tournament rating is nested with some other information, and in some cases the score has some additional notation. To get what we want, we'll just use the same technique as above, but going over the text twice, using a combination of selecting data with `seq`, regular expressions and the `str_extract` function from the `stringr` package.  
+
+
+```{r}
+Pre_Rating <- str_trim(state_rows[seq(13, length(state_rows), 10)])
+Pre_Rating <- unlist(strsplit(Pre_Rating, "\\/"))
+Pre_Rating <- str_trim(Pre_Rating[seq(2, length(Pre_Rating), 2)])
+Pre_Rating <- str_extract(Pre_Rating, "\\d{3,4}")
+Pre_Rating[1:10]
+```
+
+###Opponent Ratings  
+
+The opponent scores are not actually given directly in the .txt file. Each opponent number is given in the round, but the pre-tournament rating has to be looked up underneath the name of the opponent. To get the average scores, we'll first gather the opponent numbers and create a vector from each round. Then, we can look up the opponent rating in the `Pre_Rating` object, which is conveniently in the same order as the player listing in the .txt file.  
+
+
+```{r}
+round_1 <- str_trim(chess_names[seq(15, length(chess_names), 10)])
+round_1 <- as.numeric(str_extract(round_1, "\\d{1,2}"))
+round_2 <- str_trim(chess_names[seq(16, length(chess_names), 10)])
+round_2 <- as.numeric(str_extract(round_2, "\\d{1,2}"))
+round_3 <- str_trim(chess_names[seq(17, length(chess_names), 10)])
+round_3 <- as.numeric(str_extract(round_3, "\\d{1,2}"))
+round_4 <- str_trim(chess_names[seq(18, length(chess_names), 10)])
+round_4 <- as.numeric(str_extract(round_4, "\\d{1,2}"))
+round_5 <- str_trim(chess_names[seq(19, length(chess_names), 10)])
+round_5 <- as.numeric(str_extract(round_5, "\\d{1,2}"))
+round_6 <- str_trim(chess_names[seq(20, length(chess_names), 10)])
+round_6 <- as.numeric(str_extract(round_6, "\\d{1,2}"))
+round_7 <- str_trim(chess_names[seq(21, length(chess_names), 10)])
+round_7 <- as.numeric(str_extract(round_7, "\\d{1,2}"))
+
+#Preview of round_x vector
+tail(round_7)
+```
+
+####Matching Opponent Numbers to Pre-Tourney Ratings  
+
+I couldn't get a simpler nested loop to work for this, so below is the process to match up each round's opponent number to the corresponding Pre-Tournament Ranking for that player's opponent.  A loop parses over the corresponding `round_x` object, and then selects the `Pre_Rating` item. This works because the opponent number is the number we would use to slice or select the correct Pre-tournament rating.  
+
+After the information is taken from `Pre_Rating`, we then store it in a new object called `rnd_x_score`, and then convert it from character to numeric, since we will be calculating an average in the next step.  
+
+```{r}
+#round 1 opponents
+rnd_1_score <- c()
+for (i in 1:length(round_1))
+  {
+    rnd_1_score <- append(rnd_1_score, Pre_Rating[round_1[i]], after = length(rnd_1_score))
+}
+rnd_1_score <- as.numeric(rnd_1_score)
+
+#round 2 opponents
+rnd_2_score <- c()
+for (i in 1:length(round_2))
+  {
+    rnd_2_score <- append(rnd_2_score, Pre_Rating[round_2[i]], after = length(rnd_2_score))
+}
+rnd_2_score <- as.numeric(rnd_2_score)
+
+#round 3 opponents
+rnd_3_score <- c()
+for (i in 1:length(round_3))
+  {
+    rnd_3_score <- append(rnd_3_score, Pre_Rating[round_3[i]], after = length(rnd_3_score))
+}
+rnd_3_score <- as.numeric(rnd_3_score)
+
+#round 4 opponents
+rnd_4_score <- c()
+for (i in 1:length(round_4))
+  {
+    rnd_4_score <- append(rnd_4_score, Pre_Rating[round_4[i]], after = length(rnd_4_score))
+}
+rnd_4_score <- as.numeric(rnd_4_score)
+
+#round 5 opponents
+rnd_5_score <- c()
+for (i in 1:length(round_5))
+  {
+    rnd_5_score <- append(rnd_5_score, Pre_Rating[round_5[i]], after = length(rnd_5_score))
+}
+rnd_5_score <- as.numeric(rnd_5_score)
+
+#round 6 opponents
+rnd_6_score <- c()
+for (i in 1:length(round_6))
+  {
+    rnd_6_score <- append(rnd_6_score, Pre_Rating[round_6[i]], after = length(rnd_6_score))
+}
+rnd_6_score <- as.numeric(rnd_6_score)
+
+#round 7 opponents
+rnd_7_score <- c()
+for (i in 1:length(round_7))
+  {
+    rnd_7_score <- append(rnd_7_score, Pre_Rating[round_7[i]], after = length(rnd_7_score))
+}
+rnd_7_score <- as.numeric(rnd_7_score)
+
+#Preview of rnd_7_score
+head(rnd_7_score)
+```
+
+###Calculating Average Pre-Tourney Rating  
+
+In order to calculate the average, we combine the `rnd_x_score` objects into a matrix called `round_scores`, and then turn it into a data frame to easly calculate the average. R allows us to simultaneously create the new column and then enter the calculated means of each row.  
+Since we only need this one column for our final .csv file, and have already created vectors for the other information, we'll separate it out from the data frame and store it in a new object.  
+
+```{r}
+round_scores <- cbind(rnd_1_score, rnd_2_score, rnd_3_score, rnd_4_score, rnd_5_score, rnd_6_score, rnd_7_score)
+round_scores <- data.frame(round_scores)
+round_scores$Average <- round(rowMeans(round_scores, na.rm = TRUE))
+Avg_Opp_Pre_Rating <- round_scores$Average
+head(Avg_Opp_Pre_Rating)
+```
+
+###Putting it All Together  
+
+To put the information we were looking for in a nice package, we use `cbind` and combine the columns for the Tournament Player Name, State, Total Points, Pre-Tournament Rating, and the Average of the Pre-Tournament Ratings for each player's opponent into a matrix stored in `chess_summary`.  We'll then convert this into an R data frame, before using `write.csv` to store the data in a new .csv file.  
+
+```{r}
+#glue together the pieces
+chess_summary <- cbind(Player_Name, State, Total_Points, Pre_Rating, Avg_Opp_Pre_Rating)
+chess_summary <- data.frame(chess_summary)
+head(chess_summary)
+
+#write the .csv file
+write.csv(chess_summary, file = "tournament_summary.csv")
+```
